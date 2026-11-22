@@ -1,112 +1,73 @@
 # Deploy and Host MCPJam Inspector with Railway
 
-MCPJam Inspector is an open-source platform for testing, inspecting, and evaluating MCP servers, MCP apps, and ChatGPT apps. This template runs a single self-hosted Inspector instance on Railway so a team can debug tools, prompts, resources, OAuth flows, and widget rendering over HTTPS without installing a desktop app or exposing a local port.
+MCPJam Inspector is an open-source testing and evaluation platform for MCP server developers. This template gives a team one always-on, HTTPS-accessible Inspector instance so tools, resources, prompts, OAuth flows, and app widgets can be tested without installing a desktop app or opening a local tunnel.
 
-Short description (template marketplace): `Inspect, debug, and evaluate MCP servers with MCPJam on Railway.`
+Template marketplace description: `Inspect, debug, and evaluate MCP servers with MCPJam on Railway.`
 
 ## About Hosting MCPJam Inspector
 
-The Inspector is one stateless Node.js web service. It serves a browser UI and a local API on port `6274`, then connects to the MCP servers you configure from that UI. Access is protected by a private sign-in link generated at startup; a stable `MCPJAM_SESSION_TOKEN` keeps that link valid across restarts.
+The Inspector is a single stateless web service. It serves a browser UI and an API, then connects to the MCP servers you configure from that UI. Access is gated by a private sign-in link printed in the service logs; a stable session token keeps that link valid across restarts.
 
-This template is deployed from this GitHub repository. Its `Dockerfile` pins the official multi-architecture image `mcpjam/mcp-inspector:v3.24.0`, and `railway.json` selects the Dockerfile builder with the deploy settings. The image already bundles Node.js and the Chromium build needed for widget rendering, so there is no application build step, no custom runtime, and no database. Railway terminates TLS at the edge and forwards HTTP to port `6274`. A volume is not required: the template keeps one replica and relies on the browser session plus a fixed session token rather than local container state.
+The deployment runs one pinned official image with no database, cache, queue, or persistent volume. Railway terminates TLS at the edge and forwards traffic to the service. One replica is intentional: the Inspector keeps instance-scoped session state and local tooling, so scaling out changes its behavior.
 
-The Inspector can only reach MCP servers that are network-reachable from its container. Public HTTPS MCP servers work directly; servers in this Railway project should be addressed through their private network hostname. Local STDIO servers from your laptop are not reachable from this deployment.
+The Inspector can only reach MCP servers that are network-reachable from its container. Public HTTPS endpoints work directly, and servers deployed in the same Railway project can be reached over the private network.
 
-## Common Use Cases
+## How to use the deployment
 
-- Debug tools, resources, prompts, resource templates, and elicitation flows with full JSON-RPC traces.
-- Inspect OAuth and DCR/CIMD exchanges step by step against a remote MCP server.
-- Preview ChatGPT Apps SDK and MCP app widgets in a browser-based emulator.
-- Run cross-client chat and evaluation runs against MCP servers hosted in the same Railway project.
-- Give a distributed team one shared, HTTPS-accessible Inspector endpoint instead of per-laptop installs.
+1. Deploy the template and wait for the health check to pass.
+2. Open the service logs and copy the private **Open MCPJam** link containing `#token=...`.
+3. Open the whole link in a browser. The token fragment signs the browser in; a bare domain URL only shows instructions.
+4. Add an MCP server using an HTTP/S URL or a private-network hostname from the same Railway project.
+5. Test tools, resources, prompts, elicitation, OAuth exchanges, and widgets from that single UI.
 
-## Dependencies for MCPJam Inspector Hosting
+Share the access link only with people who should have full Inspector access. Rotate the session token if the link leaks.
 
-- A GitHub repository containing this template's `Dockerfile` and `railway.json`.
-- Official Docker image `mcpjam/mcp-inspector:v3.24.0` (amd64 and arm64), pulled by the Dockerfile.
-- Node.js runtime and Chromium are included in the image; nothing is installed at deploy time.
-- One public HTTP port (`6274`) and one Railway-generated domain.
-- No PostgreSQL, Redis, MongoDB, object storage, or persistent volume is used by this template.
-- MCP servers you want to inspect: public HTTP/S endpoints or services on the same Railway private network.
+## What works and what does not
 
-### Deployment Dependencies
-
-- [MCPJam Inspector repository](https://github.com/MCPJam/inspector)
-- [Official MCPJam Docker image on Docker Hub](https://hub.docker.com/r/mcpjam/mcp-inspector)
-- [MCPJam documentation](https://docs.mcpjam.com/)
-- [Railway template creation guide](https://docs.railway.com/templates/create)
-- [Railway public networking](https://docs.railway.com/networking/public-networking)
-- [Railway template variable functions](https://docs.railway.com/templates/create#template-variable-functions)
-
-## Template Configuration
-
-| Setting | Value |
+| Scenario | Supported |
 | --- | --- |
-| Marketplace category | AI / ML (`https://railway.com/deploy/category/ai`) |
-| Services | 1 (`MCPJam Inspector`) |
-| Source | GitHub repo → Dockerfile → `mcpjam/mcp-inspector:v3.24.0` |
-| Application port | `6274` (HTTP) |
-| Public networking | Enabled, Railway domain |
-| Health check | `GET /health` |
-| Replicas | 1 |
-| Restart policy | `ON_FAILURE`, max 5 retries |
-| Volume | None |
-| Template icon | `mcp_jam_2row.png` from the upstream repository (1:1) |
+| Public HTTP/S and SSE MCP servers | ✅ |
+| OAuth-protected servers, including DCR and CIMD flows | ✅ |
+| Tools, resources, resource templates, prompts, and elicitation | ✅ |
+| Full JSON-RPC traces and cross-client chat/evaluation views | ✅ |
+| OpenAI Apps SDK and MCP app widget emulator | ✅ |
+| MCP servers on the same Railway private network | ✅ |
+| STDIO servers from your laptop | ❌ |
+| `localhost` MCP servers | ❌ |
+| Local filesystem skills and desktop-only integrations | ❌ |
 
-Exact composer steps are in [docs/RAILWAY_SETUP.md](docs/RAILWAY_SETUP.md).
+## Comparison with alternatives
 
-## Environment Variables
+✅ = available as a built-in part of the workflow, ❌ = not part of that option's default workflow.
 
-| Variable | Required | Template value | Purpose |
-| --- | --- | --- | --- |
-| `MCPJAM_SESSION_TOKEN` | Yes | `${{secret(32, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_")}}` | URL-safe secret of at least 24 characters. Keeps the private access link valid across restarts. Mark as secret/sealed. |
-| `MCPJAM_ALLOWED_HOSTS` | Yes | `${{RAILWAY_PUBLIC_DOMAIN}}` | Comma-separated hostnames allowed to open the Inspector. Without the Railway hostname, requests are rejected with `HOST_NOT_ALLOWED`. |
-| `MCPJAM_INSPECTOR_FRONTEND_URL` | Yes | `https://${{RAILWAY_PUBLIC_DOMAIN}}` | Public browser origin used in printed links and origin validation. |
-| `MCPJAM_LOCAL_COMPUTER_ENABLED` | Recommended | `false` | Disables model-driven local shell/computer tools inside the container. They are enabled by default in self-hosted builds. |
-| `MCPJAM_LOCAL_BROWSER_ENABLED` | Recommended | `false` | Disables local agent browser tools inside the container. Set to `true` only after testing the features you need. |
-| `MCPJAM_ALLOW_WILDCARD_ORIGINS` | Optional | `false` | Only needed if `MCPJAM_ALLOWED_HOSTS` contains a wildcard such as `*.example.com`. |
+| Capability | This template (Railway) | MCPJam Hosted app | MCPJam local (npx / desktop) | Official MCP Inspector |
+| --- | --- | --- | --- | --- |
+| Browser-only, no local install | ✅ | ✅ | ❌ | ❌ |
+| Always-on public HTTPS URL | ✅ | ✅ | ❌ | ❌ |
+| One shareable URL for a team | ✅ | ✅ | ❌ | ❌ |
+| Pinned, reproducible version | ✅ | ❌ | ❌ | ❌ |
+| Runs inside your own infrastructure boundary | ✅ | ❌ | ✅ | ✅ |
+| Reaches private services in the same project/network | ✅ | ❌ | ❌ | ❌ |
+| Local STDIO MCP servers | ❌ | ❌ | ✅ | ✅ |
+| Cross-client evaluations and widget emulator | ✅ | ✅ | ✅ | ❌ |
+| Guided OAuth conformance debugger | ✅ | ✅ | ✅ | ❌ |
+| No infrastructure to maintain | ❌ | ✅ | ✅ | ✅ |
 
-Do not set `PORT`. The image listens on `6274` by default.
+Sources for this comparison: the [MCPJam repository](https://github.com/MCPJam/inspector) and the [official MCP Inspector repository](https://github.com/modelcontextprotocol/inspector). The hosted app is vendor-operated; local installs require Node.js for the terminal option or a desktop installer.
 
-## Networking and Ports
+## Security considerations
 
-| Path | Exposure | Notes |
-| --- | --- | --- |
-| `:6274` HTTP | Public via Railway domain | UI, API, WebSocket, and `/health` |
-| Railway private network | Internal only | Use `<service>.railway.internal:<port>` for MCP servers in the same project |
+- The access link is the credential. Anyone holding it can inspect and call tools on servers configured in that instance.
+- Local shell and browser tools are disabled in this deployment. They are not needed for remote MCP inspection and would add unnecessary blast radius on a public URL.
+- This is a development and evaluation tool, not a hardened production gateway. Restrict who can reach the domain or place it behind your existing access layer.
+- Do not paste production credentials into prompts, traces, or server configurations stored in the browser.
+- The upstream image contains telemetry configuration pointing at MCPJam-operated endpoints. Review internal policy before using it with sensitive data.
 
-Railway's edge provides HTTPS. The container itself serves plain HTTP, which is the expected configuration. A TCP proxy is not needed. If you add a custom domain, add it to `MCPJAM_ALLOWED_HOSTS` as a comma-separated list and point `MCPJAM_INSPECTOR_FRONTEND_URL` at the domain users actually visit.
+## Why deploy MCPJam Inspector on Railway?
 
-## Source Options
-
-| Option | Advantages | Disadvantages | Recommended use |
-| --- | --- | --- | --- |
-| GitHub source using this repository | Image version pinned in code; deploy settings versioned with the template; easy to fork and audit | Requires pushing this repo; Railway still pulls the ~950 MB base image | This template (default) |
-| Docker Image `mcpjam/mcp-inspector:v3.24.0` | No repository needed; `railway.json` and `Dockerfile` are ignored | Version and deploy settings must be entered manually in the composer | Quick deploy without a repo |
-| GitHub source using upstream `MCPJam/inspector` | Always builds current `main` | Long monorepo build, Chromium download, npm and apt egress, unpinned commit | Upstream development only |
-
-Railway reads `railway.json` and `Dockerfile` only for a GitHub-source service. Use one source only; configuring both for the same service is not supported.
-
-## Security Considerations
-
-- The sign-in link is a credential. Treat `#token=...` from `railway logs` as a secret and rotate `MCPJAM_SESSION_TOKEN` if it leaks.
-- Keep both local tool switches disabled unless a specific workflow needs them. A remote container has no trusted local machine, and model-driven shell access there is a real blast radius.
-- One replica is intentional. Session state and local tools are instance-scoped; scaling out changes behavior and may break in-flight sessions.
-- This is a development and evaluation tool, not a hardened production gateway. Restrict who can reach the public domain or put it behind your existing access layer.
-- The published image contains upstream telemetry configuration pointing at MCPJam-operated endpoints. Review your organization's policy before using it with sensitive data.
-- Never paste production credentials into prompts, traces, or MCP server configuration stored in the browser.
-
-## Why Deploy MCPJam Inspector on Railway?
-
-Railway gives the Inspector a stable HTTPS origin, a managed domain, health checks, and logs without running a VM. MCP servers deployed in the same Railway project are reachable over the free private network, so an entire MCP test stack can live in one project. Template variable functions generate the session secret at deploy time instead of shipping a hardcoded credential.
-
-## Updates and Rollback
-
-1. Check available tags on [Docker Hub](https://hub.docker.com/r/mcpjam/mcp-inspector/tags).
-2. Edit the `FROM` line in `Dockerfile`, commit and push. Railway rebuilds the service.
-3. Verify `GET /health` returns `200` and open the new private link from the logs.
-4. To roll back, restore the previous `FROM` line and push again. No data migration is involved.
+Railway supplies a stable HTTPS origin, a managed domain, health checks, and logs without a VM. MCP servers in the same project are reachable over the private network, so a test stack can live in one workspace. The pinned image makes the deployment reproducible and rollback is a version change, not a data migration.
 
 ## License
 
-MCPJam Inspector is licensed under Apache License 2.0 by the MCPJam authors. This repository contains deployment configuration and documentation only; it is not affiliated with or endorsed by MCPJam.
+MCPJam Inspector is licensed under Apache License 2.0 by the MCPJam authors. This repository contains deployment packaging and documentation only; it is not affiliated with or endorsed by MCPJam.
+
