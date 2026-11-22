@@ -2,29 +2,38 @@
 
 Railway templates are created in the Railway UI, not from a manifest file in the repository. This guide records the exact composer settings to enter.
 
-## 1. Create the template
+## Source used by this template
 
-1. Open [Railway Templates](https://railway.com/workspace/templates) in your workspace.
-2. Click **New Template** → **Start from scratch**.
-3. Name: `MCPJam Inspector`.
-4. Icon URL (1:1 PNG from the upstream repository):
+This template uses **this repository as the GitHub source**. The repository contains a one-line `Dockerfile` that pins the official image `mcpjam/mcp-inspector:v3.24.0`, plus a `railway.json` that selects the Dockerfile builder and applies the deploy settings.
+
+Railway reads `railway.json` and `Dockerfile` only when the service source is GitHub. Alternatively, the same image can be entered directly in the **Docker Image** source field — that path skips this repository entirely. Use **one** of them, never both. This guide follows the GitHub-source path.
+
+## 1. Push the repository and create the template
+
+1. Push this folder to GitHub, for example `https://github.com/<your-org>/mcpjam-inspector-railway`. The repository can be public or private if Railway has GitHub access to it.
+2. Open [Railway Templates](https://railway.com/workspace/templates) in your workspace.
+3. Click **New Template** → **Start from scratch**.
+4. Name: `MCPJam Inspector`.
+5. Icon URL (1:1 PNG from the upstream repository):
 
    ```text
    https://raw.githubusercontent.com/MCPJam/inspector/main/mcpjam-inspector/client/public/mcp_jam_2row.png
    ```
 
-5. Description (under 75 characters):
+6. Description (under 75 characters):
 
    ```text
    Inspect, debug, and evaluate MCP servers with MCPJam on Railway.
    ```
 
-## 2. Add the service
+## 2. Add the service from GitHub
 
-1. Click **Add New** → **Docker Image**.
-2. Image: `mcpjam/mcp-inspector:v3.24.0`.
-3. Service name: `MCPJam Inspector`.
-4. Leave registry credentials empty; the image is public.
+1. Click **Add New** → **GitHub Repo**.
+2. Select `mcpjam-inspector-railway` and authorize the GitHub scope if asked.
+3. Branch: `main` (or the branch you pushed).
+4. Root directory: `/` (repository root).
+5. Service name: `MCPJam Inspector`.
+6. Leave the build command and start command empty. `railway.json` sets `builder: DOCKERFILE` and `dockerfilePath: Dockerfile`; the image entrypoint is `node bin/start.js`.
 
 ## 3. Variables tab
 
@@ -50,24 +59,25 @@ Do not add `PORT`. The image defaults to `6274`.
 | Healthcheck path | `/health` |
 | Healthcheck timeout | `300` seconds (allows for a cold image pull) |
 | Start command | Leave empty (image entrypoint is `node bin/start.js`) |
-| Root directory | Not applicable for Docker Image source |
+| Root directory | `/` (repository root) |
 | Replicas | `1` |
 | Restart policy | `ON_FAILURE`, max retries `5` |
 | Volume | None |
 
 ## 5. Publish
 
-1. Click **Create Template**.
-2. Deploy the template once from its template page and wait for the health check to pass.
-3. Open the service logs and copy the private **Open MCPJam** link containing `#token=...`.
-4. Open that link in a browser to sign in. A bare domain URL only shows instructions.
-5. Optionally verify readiness:
+1. Set **Category** to `AI / ML`. Railway has no separate Developer Tools category; MCP tooling is listed under AI.
+2. Click **Create Template**.
+3. Deploy the template once from its template page and wait for the health check to pass.
+4. Open the service logs and copy the private **Open MCPJam** link containing `#token=...`.
+5. Open that link in a browser to sign in. A bare domain URL only shows instructions.
+6. Optionally verify readiness:
 
    ```bash
    curl -sS -o /dev/null -w '%{http_code}\n' https://YOUR-DOMAIN/health
    ```
 
-6. Share the template URL, and publish it from the template page when ready for the marketplace.
+7. Share the template URL, and publish it from the template page when ready for the marketplace.
 
 ## Custom domain
 
@@ -76,15 +86,11 @@ Railway's `${{RAILWAY_PUBLIC_DOMAIN}}` covers the generated domain only. If user
 - `MCPJAM_ALLOWED_HOSTS`: `generated-domain,custom-domain` (comma-separated hostnames, no scheme or port).
 - `MCPJAM_INSPECTOR_FRONTEND_URL`: `https://custom-domain`.
 
-## Alternative: GitHub source
+## Alternative: Docker Image source (no repository)
 
-If you prefer a repository source instead of the Docker Image field:
+If you do not want to push this repository, skip steps 1 and 2 above and add the service with **Add New → Docker Image**, image `mcpjam/mcp-inspector:v3.24.0`. Steps 3–5 are unchanged, except root directory does not apply. Railway will not read `railway.json` or `Dockerfile` in that case, so set the deploy settings in step 4 manually.
 
-1. Add the service from `https://github.com/<your-org>/mcpjam-inspector-railway`.
-2. Keep the root directory at the repository root. `railway.json` selects the Dockerfile builder and applies the same health check and restart policy.
-3. `Dockerfile` is a one-line pin to `mcpjam/mcp-inspector:v3.24.0`; bump that line to upgrade.
-
-Do not configure both sources for the same service. The Docker Image source is the recommended default.
+Do not configure both sources for the same service. This guide uses the GitHub-source path.
 
 ## Troubleshooting
 

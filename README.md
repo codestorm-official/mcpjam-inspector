@@ -8,7 +8,7 @@ Short description (template marketplace): `Inspect, debug, and evaluate MCP serv
 
 The Inspector is one stateless Node.js web service. It serves a browser UI and a local API on port `6274`, then connects to the MCP servers you configure from that UI. Access is protected by a private sign-in link generated at startup; a stable `MCPJAM_SESSION_TOKEN` keeps that link valid across restarts.
 
-This template uses the official multi-architecture image `mcpjam/mcp-inspector:v3.24.0`. The image already bundles Node.js and the Chromium build needed for widget rendering, so there is no application build step, no custom runtime, and no database. Railway terminates TLS at the edge and forwards HTTP to port `6274`. A volume is not required: the template keeps one replica and relies on the browser session plus a fixed session token rather than local container state.
+This template is deployed from this GitHub repository. Its `Dockerfile` pins the official multi-architecture image `mcpjam/mcp-inspector:v3.24.0`, and `railway.json` selects the Dockerfile builder with the deploy settings. The image already bundles Node.js and the Chromium build needed for widget rendering, so there is no application build step, no custom runtime, and no database. Railway terminates TLS at the edge and forwards HTTP to port `6274`. A volume is not required: the template keeps one replica and relies on the browser session plus a fixed session token rather than local container state.
 
 The Inspector can only reach MCP servers that are network-reachable from its container. Public HTTPS MCP servers work directly; servers in this Railway project should be addressed through their private network hostname. Local STDIO servers from your laptop are not reachable from this deployment.
 
@@ -22,7 +22,8 @@ The Inspector can only reach MCP servers that are network-reachable from its con
 
 ## Dependencies for MCPJam Inspector Hosting
 
-- Official Docker image `mcpjam/mcp-inspector:v3.24.0` (amd64 and arm64).
+- A GitHub repository containing this template's `Dockerfile` and `railway.json`.
+- Official Docker image `mcpjam/mcp-inspector:v3.24.0` (amd64 and arm64), pulled by the Dockerfile.
 - Node.js runtime and Chromium are included in the image; nothing is installed at deploy time.
 - One public HTTP port (`6274`) and one Railway-generated domain.
 - No PostgreSQL, Redis, MongoDB, object storage, or persistent volume is used by this template.
@@ -41,8 +42,9 @@ The Inspector can only reach MCP servers that are network-reachable from its con
 
 | Setting | Value |
 | --- | --- |
+| Marketplace category | AI / ML (`https://railway.com/deploy/category/ai`) |
 | Services | 1 (`MCPJam Inspector`) |
-| Source | Docker Image `mcpjam/mcp-inspector:v3.24.0` |
+| Source | GitHub repo → Dockerfile → `mcpjam/mcp-inspector:v3.24.0` |
 | Application port | `6274` (HTTP) |
 | Public networking | Enabled, Railway domain |
 | Health check | `GET /health` |
@@ -79,11 +81,11 @@ Railway's edge provides HTTPS. The container itself serves plain HTTP, which is 
 
 | Option | Advantages | Disadvantages | Recommended use |
 | --- | --- | --- | --- |
-| Docker Image `mcpjam/mcp-inspector:v3.24.0` | Fast, reproducible deploy; no build egress; pinned version | Version must be bumped manually; about 950 MB image pull | This template (default) |
-| GitHub source using this repository | Image version pinned in code; easy to fork and audit | Requires a Docker build that pulls the same base image | Forks and GitOps workflows |
+| GitHub source using this repository | Image version pinned in code; deploy settings versioned with the template; easy to fork and audit | Requires pushing this repo; Railway still pulls the ~950 MB base image | This template (default) |
+| Docker Image `mcpjam/mcp-inspector:v3.24.0` | No repository needed; `railway.json` and `Dockerfile` are ignored | Version and deploy settings must be entered manually in the composer | Quick deploy without a repo |
 | GitHub source using upstream `MCPJam/inspector` | Always builds current `main` | Long monorepo build, Chromium download, npm and apt egress, unpinned commit | Upstream development only |
 
-The `Dockerfile` and `railway.json` in this repository exist only for the GitHub-source variant. Railway does not read them when the template service uses the Docker Image source.
+Railway reads `railway.json` and `Dockerfile` only for a GitHub-source service. Use one source only; configuring both for the same service is not supported.
 
 ## Security Considerations
 
@@ -101,9 +103,9 @@ Railway gives the Inspector a stable HTTPS origin, a managed domain, health chec
 ## Updates and Rollback
 
 1. Check available tags on [Docker Hub](https://hub.docker.com/r/mcpjam/mcp-inspector/tags).
-2. In the template composer, change the service image tag and redeploy (or edit the `FROM` line and push if using the GitHub-source variant).
+2. Edit the `FROM` line in `Dockerfile`, commit and push. Railway rebuilds the service.
 3. Verify `GET /health` returns `200` and open the new private link from the logs.
-4. To roll back, set the previous tag and redeploy. No data migration is involved.
+4. To roll back, restore the previous `FROM` line and push again. No data migration is involved.
 
 ## License
 
