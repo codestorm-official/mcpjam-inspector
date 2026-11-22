@@ -1,34 +1,38 @@
-# Deploy and Host MCPJam Inspector with Railway
+# Deploy and Host MCPJam Inspector on Railway
 
-MCPJam Inspector is an open-source testing and evaluation platform for MCP server developers. This template gives a team one always-on, HTTPS-accessible Inspector instance so tools, resources, prompts, OAuth flows, and app widgets can be tested without installing a desktop app or opening a local tunnel.
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/mcpjam?referralCode=indah&utm_medium=integration&utm_source=template&utm_campaign=generic)
 
-Template marketplace description: `Inspect, debug, and evaluate MCP servers with MCPJam on Railway.`
+MCPJam Inspector is an open-source testing and evaluation platform for MCP server developers. Inspect tools, resources, prompts, and OAuth exchanges with full JSON-RPC traces, run cross-client evaluations, and preview MCP and ChatGPT app widgets — all from a browser, with no desktop app or local tunnel.
 
 ## About Hosting MCPJam Inspector
 
-The Inspector is a single stateless web service. It serves a browser UI and an API, then connects to the MCP servers you configure from that UI. Access is gated by a private sign-in link printed in the service logs; a stable session token keeps that link valid across restarts.
+Hosting turns the Inspector into one always-on web service. It serves a browser UI and API, then connects out to the MCP servers you configure from that UI. Access is gated by a private sign-in link printed in the service logs; a fixed session token keeps that link valid across restarts. The deployment is a single stateless service — no database, cache, or persistent volume — behind Railway-managed HTTPS on one public domain. One replica is intentional: session state and local tooling are instance-scoped. The Inspector only reaches MCP servers that are network-reachable from its container: public HTTPS endpoints directly, and same-project servers over Railway's private network.
 
-The deployment runs one pinned official image with no database, cache, queue, or persistent volume. Railway terminates TLS at the edge and forwards traffic to the service. One replica is intentional: the Inspector keeps instance-scoped session state and local tooling, so scaling out changes its behavior.
+## Common Use Cases
 
-The Inspector can only reach MCP servers that are network-reachable from its container. Public HTTPS endpoints work directly, and servers deployed in the same Railway project can be reached over the private network.
+- Debug tools, resources, resource templates, prompts, and elicitation flows with full JSON-RPC traces.
+- Step through OAuth, DCR, and CIMD exchanges against a remote MCP server.
+- Preview OpenAI Apps SDK and MCP app widgets in the built-in emulator.
+- Give a distributed team one shared, HTTPS-accessible Inspector URL instead of per-laptop installs.
+- Test MCP servers deployed in the same Railway project over the private network.
 
-## How to use the deployment
+## Dependencies for MCPJam Inspector Hosting
 
-1. Deploy the template and wait for the health check to pass.
-2. Open the service logs and copy the private **Open MCPJam** link containing `#token=...`.
-3. Open the whole link in a browser. The token fragment signs the browser in; a bare domain URL only shows instructions.
-4. Add an MCP server using an HTTP/S URL or a private-network hostname from the same Railway project.
-5. Test tools, resources, prompts, elicitation, OAuth exchanges, and widgets from that single UI.
+- Official multi-architecture Docker image `mcpjam/mcp-inspector:v3.24.0`; Node.js and Chromium are bundled, nothing is installed at deploy time.
+- One public HTTP service with a Railway-generated domain; no database, cache, queue, object storage, or persistent volume.
+- MCP servers to inspect: public HTTP/S endpoints, or services reachable in the same Railway project.
 
-Share the access link only with people who should have full Inspector access. Rotate the session token if the link leaks.
+### Implementation Details
 
-## What works and what does not
+Sign-in works through a private link, not a login form. After deployment, copy the full **Open MCPJam** link (including the `#token=...` fragment) from the service logs and open it in a browser; a bare domain URL only shows instructions. Treat that link as a credential and rotate the session token if it leaks.
+
+The Inspector can only reach MCP servers that are network-reachable from its container:
 
 | Scenario | Supported |
 | --- | --- |
 | Public HTTP/S and SSE MCP servers | ✅ |
 | OAuth-protected servers, including DCR and CIMD flows | ✅ |
-| Tools, resources, resource templates, prompts, and elicitation | ✅ |
+| Tools, resources, resource templates, prompts, elicitation | ✅ |
 | Full JSON-RPC traces and cross-client chat/evaluation views | ✅ |
 | OpenAI Apps SDK and MCP app widget emulator | ✅ |
 | MCP servers on the same Railway private network | ✅ |
@@ -36,7 +40,7 @@ Share the access link only with people who should have full Inspector access. Ro
 | `localhost` MCP servers | ❌ |
 | Local filesystem skills and desktop-only integrations | ❌ |
 
-## Comparison with alternatives
+## Comparison with Alternatives
 
 ✅ = available as a built-in part of the workflow, ❌ = not part of that option's default workflow.
 
@@ -53,21 +57,24 @@ Share the access link only with people who should have full Inspector access. Ro
 | Guided OAuth conformance debugger | ✅ | ✅ | ✅ | ❌ |
 | No infrastructure to maintain | ❌ | ✅ | ✅ | ✅ |
 
-Sources for this comparison: the [MCPJam repository](https://github.com/MCPJam/inspector) and the [official MCP Inspector repository](https://github.com/modelcontextprotocol/inspector). The hosted app is vendor-operated; local installs require Node.js for the terminal option or a desktop installer.
+Comparison based on the [MCPJam repository](https://github.com/MCPJam/inspector) and the [official MCP Inspector repository](https://github.com/modelcontextprotocol/inspector). The hosted app is vendor-operated; local installs require Node.js for the terminal option or a desktop installer.
 
-## Security considerations
+## Security Considerations
 
 - The access link is the credential. Anyone holding it can inspect and call tools on servers configured in that instance.
-- Local shell and browser tools are disabled in this deployment. They are not needed for remote MCP inspection and would add unnecessary blast radius on a public URL.
+- Local shell and browser tools are disabled in this deployment; they are not needed for remote MCP inspection and would add unnecessary blast radius on a public URL.
 - This is a development and evaluation tool, not a hardened production gateway. Restrict who can reach the domain or place it behind your existing access layer.
 - Do not paste production credentials into prompts, traces, or server configurations stored in the browser.
 - The upstream image contains telemetry configuration pointing at MCPJam-operated endpoints. Review internal policy before using it with sensitive data.
 
-## Why deploy MCPJam Inspector on Railway?
+## Why Deploy MCPJam Inspector on Railway?
 
-Railway supplies a stable HTTPS origin, a managed domain, health checks, and logs without a VM. MCP servers in the same project are reachable over the private network, so a test stack can live in one workspace. The pinned image makes the deployment reproducible and rollback is a version change, not a data migration.
+Railway is a singular platform to deploy your infrastructure stack. Railway will host your infrastructure so you don't have to deal with configuration, while allowing you to vertically and horizontally scale it.
+
+By deploying MCPJam Inspector on Railway, you are one step closer to supporting a complete full-stack application with minimal burden. Host your servers, databases, AI agents, and more on Railway.
+
+MCP servers in the same project are reachable over the private network, so an entire MCP test stack can live in one workspace, and the pinned image makes the deployment reproducible.
 
 ## License
 
 MCPJam Inspector is licensed under Apache License 2.0 by the MCPJam authors. This repository contains deployment packaging and documentation only; it is not affiliated with or endorsed by MCPJam.
-
